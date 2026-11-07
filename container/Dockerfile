@@ -35,10 +35,13 @@ ARG BUN_VERSION=1.4.4
 # SIGTERM instead of being orphaned by the shell entrypoint.
 # poppler-utils: Claude Code's Read tool shells out to pdftoppm to open a PDF;
 # without it every PDF a user sends comes back as an error.
+# tesseract-ocr(+eng/heb/osd): local OCR for images and scanned PDFs (English + Hebrew).
+# fonts-dejavu-core: has Hebrew glyphs, so Chromium renders Hebrew instead of empty boxes.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
         chromium \
+        fonts-dejavu-core \
         fonts-liberation \
         fonts-noto-color-emoji \
         libgbm1 \
@@ -59,6 +62,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         curl \
         git \
         poppler-utils \
+        tesseract-ocr \
+        tesseract-ocr-eng \
+        tesseract-ocr-heb \
+        tesseract-ocr-osd \
         tini \
         unzip \
     && if [ "$INSTALL_CJK_FONTS" = "true" ]; then \
