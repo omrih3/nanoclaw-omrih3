@@ -36,6 +36,7 @@ ARG BUN_VERSION=1.4.4
 # poppler-utils: Claude Code's Read tool shells out to pdftoppm to open a PDF;
 # without it every PDF a user sends comes back as an error.
 # tesseract-ocr(+eng/heb/osd): local OCR for images and scanned PDFs (English + Hebrew).
+# ffmpeg + python3(-venv): audio decoding and the faster-whisper venv (local speech-to-text).
 # fonts-dejavu-core: has Hebrew glyphs, so Chromium renders Hebrew instead of empty boxes.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -60,8 +61,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         libxshmfence1 \
         ca-certificates \
         curl \
+        ffmpeg \
         git \
         poppler-utils \
+        python3 \
+        python3-venv \
         tesseract-ocr \
         tesseract-ocr-eng \
         tesseract-ocr-heb \
@@ -88,6 +92,27 @@ RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}" && \
     install -m 0755 /root/.bun/bin/bun /usr/local/bin/bun && \
     rm -rf /root/.bun && \
     test "$(bun --version)" = "${BUN_VERSION}"
+
+# ---- Local speech-to-text (faster-whisper) -----------------------------------
+# Venv at /opt/whisper, model baked into /opt/whisper-models so every agent can
+# transcribe offline with `whisper-transcribe <file>`. CPU + int8. Placed before
+# the frequently bumped layers so the ~1.6GB model layer stays cached.
+ARG FASTER_WHISPER_VERSION=1.2.1
+ARG WHISPER_MODEL=large-v3-turbo
+ENV WHISPER_MODEL_DIR=/opt/whisper-models
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python3 -m venv /opt/whisper \
+    && /opt/whisper/bin/pip install "faster-whisper==${FASTER_WHISPER_VERSION}" \
+    && /opt/whisper/bin/python -c "from faster_whisper import WhisperModel; WhisperModel('${WHISPER_MODEL}', device='cpu', compute_type='int8', download_root='/opt/whisper-models')" \
+    && chmod -R a+rX /opt/whisper /opt/whisper-models
+# Lighter models for speed on a weak CPU. Separate layer so the large model above stays cached.
+ARG WHISPER_EXTRA_MODELS="small base tiny"
+RUN for m in ${WHISPER_EXTRA_MODELS}; do \
+      /opt/whisper/bin/python -c "from faster_whisper import WhisperModel; WhisperModel('$m', device='cpu', compute_type='int8', download_root='/opt/whisper-models')" || exit 1; \
+    done \
+    && chmod -R a+rX /opt/whisper-models
+COPY whisper-transcribe.py /usr/local/bin/whisper-transcribe
+RUN chmod 0755 /usr/local/bin/whisper-transcribe
 
 # ---- agent-runner deps -------------------------------------------------------
 # Deps are cached independently of CLI versions. Source is NOT baked in —
