@@ -27,7 +27,7 @@ import { tryConsume } from './telegram-pairing.js';
  * group engagement can never be sticky-per-thread — 'mention' keeps a group
  * wiring from staying engaged forever in the single shared session.
  */
-const TELEGRAM_DEFAULTS: ChannelDefaults = {
+export const TELEGRAM_DEFAULTS: ChannelDefaults = {
   dm: { engageMode: 'pattern', engagePattern: '.', threads: false, unknownSenderPolicy: 'request_approval' },
   group: { engageMode: 'mention', threads: false, unknownSenderPolicy: 'request_approval' },
   mentions: 'platform',

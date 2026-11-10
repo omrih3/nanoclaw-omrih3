@@ -114,6 +114,17 @@ RUN for m in ${WHISPER_EXTRA_MODELS}; do \
 COPY whisper-transcribe.py /usr/local/bin/whisper-transcribe
 RUN chmod 0755 /usr/local/bin/whisper-transcribe
 
+# ---- Google Maps scraper (gosom/google-maps-scraper) -------------------------
+# Static Go binary + its Playwright driver/Chromium, lifted from the published
+# image (pinned by digest). Env is set by the gmaps-scrape wrapper only, so it
+# does not leak into other Playwright consumers. Bump tag and digest together.
+COPY --from=gosom/google-maps-scraper:v1.18.1@sha256:72cbe16b6832d35971611659807fa85bdab19715dd29f74db5ae01714ca18666 /usr/bin/google-maps-scraper /usr/local/bin/google-maps-scraper
+COPY --from=gosom/google-maps-scraper:v1.18.1@sha256:72cbe16b6832d35971611659807fa85bdab19715dd29f74db5ae01714ca18666 /opt/browsers /opt/gmaps/browsers
+COPY --from=gosom/google-maps-scraper:v1.18.1@sha256:72cbe16b6832d35971611659807fa85bdab19715dd29f74db5ae01714ca18666 /opt/ms-playwright-go /opt/gmaps/driver
+COPY gmaps-scrape.sh /usr/local/bin/gmaps-scrape
+# Browsers dir must be writable: playwright-go runs `install chromium` (a no-op, but it takes a lock there) on every start.
+RUN chmod -R a+rX /opt/gmaps && chmod -R a+rwX /opt/gmaps/browsers && chmod 0755 /usr/local/bin/gmaps-scrape
+
 # ---- agent-runner deps -------------------------------------------------------
 # Deps are cached independently of CLI versions. Source is NOT baked in —
 # it's provided by the shared RO mount at runtime.
